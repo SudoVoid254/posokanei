@@ -250,13 +250,20 @@
             ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}" class="product-img">` : ''}
             <div class="product-name">${p.name}</div>
             ${p.brand ? `<div class="product-brand">Brand: ${p.brand}</div>` : ''}
-            ${p.retailers && p.retailers.length > 0 ? `
+            ${p.price_stats ? `
+              <div style="font-size: 12px; margin: 8px 0; padding: 8px; background: #fff3cd; border-radius: 2px;">
+                <strong>Min: €${p.price_stats.min_price?.toFixed(2)}</strong><br>
+                <strong>Avg: €${p.price_stats.avg_price?.toFixed(2)}</strong><br>
+                <strong>Max: €${p.price_stats.max_price?.toFixed(2)}</strong>
+              </div>
+            ` : ''}
+            ${p.retailer_prices && p.retailer_prices.length > 0 ? `
               <div class="retailers">
-                <div class="retailers-title">Prices:</div>
-                ${p.retailers.map(r => `
+                <div class="retailers-title">Retailers:</div>
+                ${p.retailer_prices.map(r => `
                   <div class="retailer">
-                    <span>${r.retailer_name}</span>
-                    <strong>€${r.price?.toFixed(2) || 'N/A'}</strong>
+                    <span>${r.retailer_display_name}</span>
+                    <strong>€${r.price?.toFixed(2)}</strong>
                   </div>
                 `).join('')}
               </div>
