@@ -4,284 +4,87 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PosoKanei - Price Comparison</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
-      padding: 20px;
-    }
-    
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 250px 1fr;
-      gap: 20px;
-    }
-    
-    h1 {
-      grid-column: 1 / -1;
-      margin-bottom: 20px;
-    }
-    
-    .sidebar {
-      border: 1px solid #ddd;
-      background: white;
-      padding: 15px;
-      border-radius: 4px;
-      max-height: 600px;
-      overflow-y: auto;
-    }
-    
-    .sidebar h3 {
-      margin-bottom: 15px;
-      font-size: 16px;
-    }
-    
-    .category-list {
-      list-style: none;
-    }
-    
-    .category-item {
-      margin: 4px 0;
-    }
-    
-    .category-btn {
-      width: 100%;
-      padding: 8px 12px;
-      background: #f0f0f0;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      text-align: left;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    
-    .category-btn:hover {
-      background: #e0e0e0;
-    }
-    
-    .category-btn.active {
-      background: #007bff;
-      color: white;
-    }
-    
-    .category-btn.nested-1 { padding-left: 24px; }
-    .category-btn.nested-2 { padding-left: 40px; }
-    .category-btn.nested-3 { padding-left: 56px; }
-    
-    .main {
-      background: white;
-      padding: 20px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-    }
-    
-    .main h3 {
-      margin-bottom: 15px;
-    }
-    
-    .products-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 15px;
-    }
-    
-    .product-card {
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      padding: 12px;
-      background: #fafafa;
-      transition: box-shadow 0.2s;
-    }
-    
-    .product-card:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
-    .product-img {
-      width: 100%;
-      height: 150px;
-      object-fit: cover;
-      border-radius: 4px;
-      margin-bottom: 8px;
-    }
-    
-    .product-name {
-      font-weight: bold;
-      margin: 8px 0;
-      font-size: 14px;
-    }
-    
-    .product-brand {
-      font-size: 12px;
-      color: #666;
-      margin: 4px 0;
-    }
-    
-    .retailers {
-      margin-top: 8px;
-      font-size: 12px;
-    }
-    
-    .retailers-title {
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
-    
-    .retailer {
-      padding: 4px;
-      background: #f0f0f0;
-      border-radius: 2px;
-      margin-bottom: 4px;
-      display: flex;
-      justify-content: space-between;
-    }
-    
-    .loading, .error {
-      padding: 15px;
-      border-radius: 4px;
-      margin: 10px 0;
-    }
-    
-    .loading {
-      background: #e7f3ff;
-      color: #0056b3;
-    }
-    
-    .error {
-      background: #f8d7da;
-      color: #721c24;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙 Dark</button>
+  <button class="compare-btn" id="compareBtn" aria-label="Compare selected products">
+    Compare ⚖
+    <span class="compare-count" id="compareCount">0</span>
+  </button>
+
+  <div class="modal" id="compareModal" role="dialog" aria-labelledby="compareModalTitle">
+    <div class="modal-content">
+      <button class="modal-close" id="compareClose" aria-label="Close compare modal">✕</button>
+      <h2 id="compareModalTitle">Compare Products</h2>
+      <table class="compare-table">
+        <tbody id="compareTable"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="container">
     <h1>PosoKanei - Price Comparison</h1>
     
     <div class="sidebar">
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle categories sidebar">☰ Categories</button>
       <h3>Categories</h3>
       <ul class="category-list" id="categories"></ul>
     </div>
     
     <div class="main">
-      <h3 id="selectedCatName">Select a category</h3>
+      <h3 id="selectedCatName">
+        Select a category
+        <span class="product-count"></span>
+      </h3>
+      
+      <div class="controls">
+        <div class="control-group">
+          <label for="searchInput">Search</label>
+          <input type="text" id="searchInput" placeholder="Product name..." aria-label="Search products">
+        </div>
+        <div class="control-group">
+          <label for="pageSize">Per page</label>
+          <select id="pageSize" aria-label="Products per page">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="sortOrder">Sort price</label>
+          <select id="sortOrder" aria-label="Sort products by price">
+            <option value="asc" selected>Low to high</option>
+            <option value="desc">High to low</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="price-range-container">
+        <label>Price range (€)</label>
+        <div class="price-inputs">
+          <input type="number" id="priceMin" placeholder="Min" min="0" step="0.01" aria-label="Minimum price">
+          <input type="number" id="priceMax" placeholder="Max" min="0" step="0.01" value="999999" aria-label="Maximum price">
+        </div>
+        <div class="price-display">
+          €<span id="priceDisplay">0</span> - €<span id="priceDisplayMax">999999</span>
+        </div>
+      </div>
+
+      <div class="brand-filter">
+        <label for="brandFilter">Brand</label>
+        <select id="brandFilter" class="brand-select" aria-label="Filter by brand">
+          <option value="all">All Brands</option>
+        </select>
+        <button class="filter-reset" id="clearFilters" aria-label="Clear all filters">Clear All Filters</button>
+      </div>
+      
       <div id="content">
         <p style="color: #666;">Click a category to view products</p>
       </div>
     </div>
   </div>
 
-  <script>
-    const WORKER_URL = 'https://posokanei-worker.jxrono10.workers.dev/api';
-    let selectedCategoryId = null;
-
-    async function init() {
-      try {
-        const res = await fetch(`${WORKER_URL}/meta/categories/tree?include_counts=true&include_hidden=false`);
-        const data = await res.json();
-        renderCategories(data.tree);
-      } catch (err) {
-        showError('Failed to load categories: ' + err.message);
-      }
-    }
-
-    function renderCategories(categories, depth = 0, parentEl = null) {
-      const container = parentEl || document.getElementById('categories');
-      
-      categories.forEach(cat => {
-        const li = document.createElement('li');
-        li.className = 'category-item';
-        
-        const btn = document.createElement('button');
-        btn.className = `category-btn nested-${depth}`;
-        btn.textContent = `${cat.name} (${cat.total_product_count})`;
-        btn.onclick = () => selectCategory(cat.category_id, cat.name);
-        
-        li.appendChild(btn);
-        container.appendChild(li);
-        
-        if (cat.children && cat.children.length > 0) {
-          const ul = document.createElement('ul');
-          ul.className = 'category-list';
-          li.appendChild(ul);
-          renderCategories(cat.children, depth + 1, ul);
-        }
-      });
-    }
-
-    async function selectCategory(catId, catName) {
-      selectedCategoryId = catId;
-      document.getElementById('selectedCatName').textContent = catName;
-      document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      showLoading();
-      
-      try {
-        const res = await fetch(
-          `${WORKER_URL}/products?page=1&page_size=100&category=${catId}&countries=GR&sort_by=unit_price&sort_order=asc`
-        );
-        const data = await res.json();
-        renderProducts(data.products || []);
-      } catch (err) {
-        showError('Failed to load products: ' + err.message);
-      }
-    }
-
-    function renderProducts(products) {
-      const content = document.getElementById('content');
-      
-      if (products.length === 0) {
-        content.innerHTML = '<p style="color: #666;">No products found</p>';
-        return;
-      }
-      
-      content.innerHTML = `<div class="products-grid">${
-        products.map(p => `
-          <div class="product-card">
-            ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}" class="product-img">` : ''}
-            <div class="product-name">${p.name}</div>
-            ${p.brand ? `<div class="product-brand">Brand: ${p.brand}</div>` : ''}
-            ${p.price_stats ? `
-              <div style="font-size: 12px; margin: 8px 0; padding: 8px; background: #fff3cd; border-radius: 2px;">
-                <strong>Min: €${p.price_stats.min_price?.toFixed(2)}</strong><br>
-                <strong>Avg: €${p.price_stats.avg_price?.toFixed(2)}</strong><br>
-                <strong>Max: €${p.price_stats.max_price?.toFixed(2)}</strong>
-              </div>
-            ` : ''}
-            ${p.retailer_prices && p.retailer_prices.length > 0 ? `
-              <div class="retailers">
-                <div class="retailers-title">Retailers:</div>
-                ${p.retailer_prices.map(r => `
-                  <div class="retailer">
-                    <span>${r.retailer_display_name}</span>
-                    <strong>€${r.price?.toFixed(2)}</strong>
-                  </div>
-                `).join('')}
-              </div>
-            ` : ''}
-          </div>
-        `).join('')
-      }</div>`;
-    }
-
-    function showLoading() {
-      document.getElementById('content').innerHTML = '<div class="loading">Loading products...</div>';
-    }
-
-    function showError(msg) {
-      document.getElementById('content').innerHTML = `<div class="error">${msg}</div>`;
-    }
-
-    init();
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
