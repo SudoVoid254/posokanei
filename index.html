@@ -8,6 +8,7 @@
 </head>
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙 Dark</button>
+  <div class="keyboard-hint">Press <kbd>?</kbd> for help</div>
   <button class="compare-btn" id="compareBtn" aria-label="Compare selected products">
     Compare ⚖
     <span class="compare-count" id="compareCount">0</span>
@@ -20,7 +21,11 @@
       <table class="compare-table">
         <tbody id="compareTable"></tbody>
       </table>
+      <button class="export-btn" onclick="exportCompareToCSV()">📥 Export to CSV</button>
     </div>
+  </div>
+
+  <div id="detailModal" role="dialog" aria-labelledby="detailModalTitle">
   </div>
 
   <div class="container">
@@ -77,6 +82,7 @@
           <option value="all">All Brands</option>
         </select>
         <button class="filter-reset" id="clearFilters" aria-label="Clear all filters">Clear All Filters</button>
+        <button class="export-btn" onclick="exportFavoritesToCSV()" style="background: #6c757d; margin-top: 8px;">📥 Export Favorites</button>
       </div>
       
       <div id="content">

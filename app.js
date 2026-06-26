@@ -21,8 +21,10 @@ const API = {
   
   async getProducts(catId, page, pageSize, sortOrder) {
     try {
+      // API max page_size is 100, cap user selection
+      const limitedPageSize = Math.min(pageSize, 100);
       const res = await fetch(
-        `${this.WORKER_URL}/products?page=${page}&page_size=${pageSize}&category=${catId}&countries=GR&sort_by=unit_price&sort_order=${sortOrder}`
+        `${this.WORKER_URL}/products?page=${page}&page_size=${limitedPageSize}&category=${catId}`
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
@@ -46,10 +48,17 @@ const state = {
   priceMax: 999999,
   favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
   compareProducts: JSON.parse(localStorage.getItem('compareProducts') || '[]'),
-  selectedBrand: 'all'
+  selectedBrand: 'all',
+  recentlyViewed: JSON.parse(localStorage.getItem('recentlyViewed') || '[]')
 };
 
-// ============ DEBOUNCE ============
+// ============ UTILITIES ============
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 function debounce(fn, delay) {
   let timeoutId;
   return function(...args) {
@@ -58,16 +67,197 @@ function debounce(fn, delay) {
   };
 }
 
-// ============ INITIALIZATION ============
+// ============ URL STATE MANAGEMENT ============
+function updateUrlState() {
+  const params = new URLSearchParams();
+  if (state.selectedCategoryId) params.set('category', state.selectedCategoryId);
+  const search = document.getElementById('searchInput')?.value;
+  if (search) params.set('search', search);
+  if (state.currentPage > 1) params.set('page', state.currentPage);
+  if (state.priceMin > 0) params.set('minPrice', state.priceMin);
+  if (state.priceMax < 999999) params.set('maxPrice', state.priceMax);
+  if (state.selectedBrand !== 'all') params.set('brand', state.selectedBrand);
+  if (state.sortOrder !== 'asc') params.set('sort', state.sortOrder);
+  
+  const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
+  window.history.replaceState(null, '', newUrl);
+}
+
+function loadUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  
+  if (params.has('category')) {
+    const catId = params.get('category');
+    const catName = state.allProducts[0]?.category_name || 'Category';
+    state.selectedCategoryId = catId;
+    state.selectedCategoryName = catName;
+  }
+  
+  if (params.has('search')) {
+    const search = params.get('search');
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.value = decodeURIComponent(search);
+  }
+  
+  if (params.has('page')) {
+    state.currentPage = parseInt(params.get('page')) || 1;
+  }
+  
+  if (params.has('minPrice')) {
+    state.priceMin = parseFloat(params.get('minPrice')) || 0;
+    const priceMin = document.getElementById('priceMin');
+    if (priceMin) priceMin.value = state.priceMin;
+  }
+  
+  if (params.has('maxPrice')) {
+    state.priceMax = parseFloat(params.get('maxPrice')) || 999999;
+    const priceMax = document.getElementById('priceMax');
+    if (priceMax) priceMax.value = state.priceMax;
+  }
+  
+  if (params.has('brand')) {
+    state.selectedBrand = params.get('brand');
+    const brandFilter = document.getElementById('brandFilter');
+    if (brandFilter) brandFilter.value = state.selectedBrand;
+  }
+  
+  if (params.has('sort')) {
+    state.sortOrder = params.get('sort');
+    const sortOrder = document.getElementById('sortOrder');
+    if (sortOrder) sortOrder.value = state.sortOrder;
+  }
+}
+
+// ============ EXPORT FUNCTIONALITY ============
+function exportCompareToCSV() {
+  if (state.compareProducts.length === 0) {
+    alert('No products to export');
+    return;
+  }
+
+  const products = state.compareProducts.map(id => 
+    state.allProducts.find(p => getProductId(p) === id)
+  ).filter(p => p);
+
+  let csv = 'Product Name,Brand,Min Price,Avg Price,Max Price,Retailers Count\n';
+  products.forEach(p => {
+    csv += `"${p.name}","${p.brand || ''}","${p.price_stats?.min_price || 'N/A'}","${p.price_stats?.avg_price || 'N/A'}","${p.price_stats?.max_price || 'N/A'}","${p.retailer_prices?.length || 0}"\n`;
+  });
+
+  downloadCSV(csv, 'compare-results.csv');
+}
+
+function exportFavoritesToCSV() {
+  if (state.favorites.length === 0) {
+    alert('No favorites to export');
+    return;
+  }
+
+  const products = state.favorites.map(id => 
+    state.allProducts.find(p => getProductId(p) === id)
+  ).filter(p => p);
+
+  let csv = 'Product Name,Brand,Min Price,Avg Price,Max Price,Retailers Count\n';
+  products.forEach(p => {
+    csv += `"${p.name}","${p.brand || ''}","${p.price_stats?.min_price || 'N/A'}","${p.price_stats?.avg_price || 'N/A'}","${p.price_stats?.max_price || 'N/A'}","${p.retailer_prices?.length || 0}"\n`;
+  });
+
+  downloadCSV(csv, 'favorites.csv');
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
+// ============ KEYBOARD SHORTCUTS ============
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Escape closes modals
+    if (e.key === 'Escape') {
+      document.getElementById('compareModal')?.classList.remove('open');
+      document.getElementById('detailModal')?.classList.remove('open');
+      return;
+    }
+
+    // Only if not typing in input
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') {
+      return;
+    }
+
+    // / = focus search
+    if (e.key === '/') {
+      e.preventDefault();
+      document.getElementById('searchInput')?.focus();
+      return;
+    }
+
+    // c = clear filters
+    if (e.key === 'c' || e.key === 'C') {
+      e.preventDefault();
+      clearFilters();
+      return;
+    }
+
+    // ? = show help
+    if (e.shiftKey && e.key === '?') {
+      e.preventDefault();
+      showKeyboardHelp();
+      return;
+    }
+
+    // n = next page
+    if (e.key === 'n' && !e.ctrlKey && !e.metaKey) {
+      const btn = document.querySelector('.pagination button[data-page]:not(:disabled)');
+      if (btn && parseInt(btn.getAttribute('data-page')) === state.currentPage + 1) {
+        goToPage(state.currentPage + 1);
+      }
+      return;
+    }
+
+    // p = previous page
+    if (e.key === 'p' && !e.ctrlKey && !e.metaKey) {
+      if (state.currentPage > 1) {
+        goToPage(state.currentPage - 1);
+      }
+      return;
+    }
+  });
+}
+
+function showKeyboardHelp() {
+  const helpText = `
+⌨️ Keyboard Shortcuts:
+
+/ = Focus search
+c = Clear all filters
+n = Next page
+p = Previous page
+? = Show this help
+Esc = Close modals
+  `.trim();
+  alert(helpText);
+}
 async function init() {
   try {
     const categories = await API.getCategories();
     renderCategories(categories);
+    setupKeyboardShortcuts();
     setupEventListeners();
     
     // Set initial theme toggle text
     const themeToggle = document.getElementById('themeToggle');
     themeToggle.textContent = state.darkMode ? '☀ Light' : '🌙 Dark';
+    
+    // Load URL state if exists
+    loadUrlState();
   } catch (err) {
     showError('Failed to load categories: ' + err.message);
   }
@@ -268,6 +458,15 @@ async function selectCategory(catId, catName) {
   }
 }
 
+function trackRecentlyViewed(productId, productName) {
+  const entry = { id: productId, name: productName, time: Date.now() };
+  const idx = state.recentlyViewed.findIndex(p => p.id === productId);
+  if (idx > -1) state.recentlyViewed.splice(idx, 1);
+  state.recentlyViewed.unshift(entry);
+  if (state.recentlyViewed.length > 20) state.recentlyViewed.pop();
+  localStorage.setItem('recentlyViewed', JSON.stringify(state.recentlyViewed));
+}
+
 // ============ COMPARE ============
 function getProductId(product) {
   return product.id || product.name || `product-${Math.random()}`;
@@ -325,11 +524,11 @@ function openCompareModal() {
   let html = `
     <tr>
       <th>Property</th>
-      ${products.map(p => `<th>${p.name}</th>`).join('')}
+      ${products.map(p => `<th>${escapeHtml(p.name)}</th>`).join('')}
     </tr>
     <tr>
       <td>Brand</td>
-      ${products.map(p => `<td>${p.brand || 'N/A'}</td>`).join('')}
+      ${products.map(p => `<td>${escapeHtml(p.brand || 'N/A')}</td>`).join('')}
     </tr>
     <tr>
       <td>Min Price</td>
@@ -351,13 +550,32 @@ function openCompareModal() {
       <td>Action</td>
       ${products.map(p => `
         <td>
-          <button class="compare-remove" onclick="toggleCompare('${getProductId(p)}', event)">Remove</button>
+          <button class="compare-remove" data-product-id="${escapeHtml(getProductId(p))}" data-action="remove-compare">Remove</button>
         </td>
       `).join('')}
     </tr>
   `;
 
   table.innerHTML = html;
+  
+  // Event delegation for compare modal remove buttons
+  table.addEventListener('click', (e) => {
+    if (e.target.hasAttribute('data-action') && e.target.getAttribute('data-action') === 'remove-compare') {
+      const productId = e.target.getAttribute('data-product-id');
+      const idx = state.compareProducts.indexOf(productId);
+      if (idx > -1) {
+        state.compareProducts.splice(idx, 1);
+        localStorage.setItem('compareProducts', JSON.stringify(state.compareProducts));
+        updateCompareButton();
+        if (state.compareProducts.length === 0) {
+          closeCompareModal();
+        } else {
+          openCompareModal();
+        }
+      }
+    }
+  });
+  
   modal.classList.add('open');
 }
 
@@ -376,12 +594,11 @@ function updateBrandOptions() {
   if (select) {
     const current = select.value;
     select.innerHTML = '<option value="all">All Brands</option>' +
-      brands.map(b => `<option value="${b}">${b}</option>`).join('');
+      brands.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
     select.value = current;
   }
 }
 
-// ============ FILTERING & PAGINATION ============
 function filterAndRenderProducts() {
   const searchTerm = document.getElementById('searchInput').value.toLowerCase();
   
@@ -410,6 +627,7 @@ function filterAndRenderProducts() {
   const endIdx = startIdx + state.pageSize;
   const paginatedProducts = state.filteredProducts.slice(startIdx, endIdx);
 
+  updateUrlState();
   renderProducts(paginatedProducts, state.filteredProducts.length, totalPages);
 }
 
@@ -430,6 +648,68 @@ function isFavorited(productId) {
   return state.favorites.includes(productId);
 }
 
+// ============ PRODUCT DETAIL MODAL ============
+function openProductDetailModal(product) {
+  const modal = document.getElementById('detailModal');
+  if (!modal) return;
+
+  const retailersList = product.retailer_prices?.map(r => `
+    <div style="padding: 8px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;">
+      <span>${escapeHtml(r.retailer_display_name)}</span>
+      <strong>€${r.price?.toFixed(2)}</strong>
+    </div>
+  `).join('') || '<p style="color: #999;">No pricing data</p>';
+
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 500px;">
+      <button class="modal-close" id="detailClose" aria-label="Close detail modal">✕</button>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div>
+          ${product.image_url ? `<img src="${escapeHtml(product.image_url)}" alt="${escapeHtml(product.name)}" style="width: 100%; border-radius: 4px;">` : '<div style="background: #e0e0e0; height: 200px; border-radius: 4px;"></div>'}
+        </div>
+        <div>
+          <h2 style="margin: 0 0 8px; font-size: 18px;">${escapeHtml(product.name)}</h2>
+          ${product.brand ? `<p style="color: #666; margin: 0 0 16px;">Brand: ${escapeHtml(product.brand)}</p>` : ''}
+          
+          <div style="background: #f9f9f9; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
+              <div>
+                <div style="font-size: 12px; color: #666;">Min</div>
+                <strong style="font-size: 16px;">€${product.price_stats?.min_price?.toFixed(2) || 'N/A'}</strong>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Avg</div>
+                <strong style="font-size: 16px;">€${product.price_stats?.avg_price?.toFixed(2) || 'N/A'}</strong>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #666;">Max</div>
+                <strong style="font-size: 16px;">€${product.price_stats?.max_price?.toFixed(2) || 'N/A'}</strong>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <strong>Available at ${product.retailer_prices?.length || 0} retailers:</strong>
+            <div style="margin-top: 8px; max-height: 200px; overflow-y: auto; font-size: 13px;">
+              ${retailersList}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('detailClose').addEventListener('click', () => {
+    modal.classList.remove('open');
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.classList.remove('open');
+  });
+
+  modal.classList.add('open');
+}
+
 // ============ PRODUCT RENDERING ============
 function renderProducts(products, totalFiltered, totalPages) {
   const content = document.getElementById('content');
@@ -444,14 +724,16 @@ function renderProducts(products, totalFiltered, totalPages) {
     return;
   }
 
-  document.querySelector('.product-count').textContent = 
-    `(${totalFiltered} total, page ${state.currentPage}/${totalPages})`;
+  const countEl = document.querySelector('.product-count');
+  if (countEl) {
+    countEl.textContent = `(${totalFiltered} total, page ${state.currentPage}/${totalPages})`;
+  }
 
   const minPriceAll = Math.min(...state.allProducts.map(p => p.price_stats?.min_price || 999999));
 
   content.innerHTML = `
     <div class="products-grid">
-      ${products.map(p => {
+      ${products.map((p, idx) => {
         const cheapestRetailer = p.retailer_prices?.length > 0 
           ? p.retailer_prices.reduce((a, b) => (a.price || 999999) < (b.price || 999999) ? a : b)
           : null;
@@ -461,20 +743,20 @@ function renderProducts(products, totalFiltered, totalPages) {
         const inCompare = isInCompare(getProductId(p));
 
         return `
-          <div class="product-card">
+          <div class="product-card" data-product-id="${escapeHtml(getProductId(p))}" data-product-idx="${idx}">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px;">
-              <div class="product-name" style="flex: 1;">${p.name}</div>
+              <div class="product-name" style="flex: 1;">${escapeHtml(p.name)}</div>
               <div style="display: flex; gap: 4px;">
-                <button class="favorite-btn ${isFav ? 'favorited' : ''}" onclick="toggleFavorite('${getProductId(p)}', event)" title="Favorite">
+                <button class="favorite-btn ${isFav ? 'favorited' : ''}" data-action="favorite" title="Favorite">
                   ${isFav ? '★' : '☆'}
                 </button>
-                <button class="favorite-btn ${inCompare ? 'favorited' : ''}" onclick="toggleCompare('${getProductId(p)}', event)" title="Compare" style="color: ${inCompare ? '#28a745' : '#999'}">
+                <button class="favorite-btn ${inCompare ? 'favorited' : ''}" data-action="compare" title="Compare" style="color: ${inCompare ? '#28a745' : '#999'}">
                   ⚖
                 </button>
               </div>
             </div>
-            ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}" class="product-img" loading="lazy">` : ''}
-            ${p.brand ? `<div class="product-brand">Brand: ${p.brand}</div>` : ''}
+            ${p.image_url ? `<img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" class="product-img" loading="lazy">` : ''}
+            ${p.brand ? `<div class="product-brand">Brand: ${escapeHtml(p.brand)}</div>` : ''}
             ${p.price_stats ? `
               <div class="price-highlight" ${isPriceLeader ? 'style="border: 2px solid #ffc107;"' : ''}>
                 <strong>Min: €${p.price_stats.min_price?.toFixed(2)}</strong><br>
@@ -487,7 +769,7 @@ function renderProducts(products, totalFiltered, totalPages) {
                 <div class="retailers-title">Retailers:</div>
                 ${p.retailer_prices.map(r => `
                   <div class="retailer ${cheapestRetailer?.retailer_display_name === r.retailer_display_name ? 'cheapest' : ''}">
-                    <span>${r.retailer_display_name}</span>
+                    <span>${escapeHtml(r.retailer_display_name)}</span>
                     <strong>€${r.price?.toFixed(2)}</strong>
                   </div>
                 `).join('')}
@@ -500,19 +782,49 @@ function renderProducts(products, totalFiltered, totalPages) {
     
     ${totalPages > 1 ? `
       <div class="pagination">
-        <button onclick="goToPage(1)" ${state.currentPage === 1 ? 'disabled' : ''}>« First</button>
-        <button onclick="goToPage(${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>‹ Prev</button>
+        <button data-page="1" ${state.currentPage === 1 ? 'disabled' : ''}>« First</button>
+        <button data-page="${state.currentPage - 1}" ${state.currentPage === 1 ? 'disabled' : ''}>‹ Prev</button>
         ${Array.from({length: totalPages}, (_, i) => i + 1)
           .filter(p => Math.abs(p - state.currentPage) <= 2 || p === 1 || p === totalPages)
           .map((p, i, arr) => {
             if (i > 0 && arr[i-1] !== p - 1) return '<span>...</span>';
-            return `<button onclick="goToPage(${p})" class="${p === state.currentPage ? 'active' : ''}">${p}</button>`;
+            return `<button data-page="${p}" class="${p === state.currentPage ? 'active' : ''}">${p}</button>`;
           }).join('')}
-        <button onclick="goToPage(${state.currentPage + 1})" ${state.currentPage === totalPages ? 'disabled' : ''}>Next ›</button>
-        <button onclick="goToPage(${totalPages})" ${state.currentPage === totalPages ? 'disabled' : ''}>Last »</button>
+        <button data-page="${state.currentPage + 1}" ${state.currentPage === totalPages ? 'disabled' : ''}>Next ›</button>
+        <button data-page="${totalPages}" ${state.currentPage === totalPages ? 'disabled' : ''}>Last »</button>
       </div>
     ` : ''}
   `;
+
+  // Event delegation for product actions and pagination
+  content.addEventListener('click', (e) => {
+    const productCard = e.target.closest('[data-product-id]');
+    if (productCard) {
+      if (e.target.hasAttribute('data-action')) {
+        const action = e.target.getAttribute('data-action');
+        const productId = productCard.getAttribute('data-product-id');
+        if (action === 'favorite') {
+          toggleFavorite(productId, e);
+        } else if (action === 'compare') {
+          toggleCompare(productId, e);
+        }
+      } else if (!e.target.closest('button')) {
+        // Open detail modal on card click (not on button click)
+        const productId = productCard.getAttribute('data-product-id');
+        const product = state.allProducts.find(p => getProductId(p) === productId);
+        if (product) {
+          trackRecentlyViewed(productId, product.name);
+          openProductDetailModal(product);
+        }
+      }
+    }
+
+    const pageBtn = e.target.closest('button[data-page]');
+    if (pageBtn && !pageBtn.disabled) {
+      const page = parseInt(pageBtn.getAttribute('data-page'));
+      goToPage(page);
+    }
+  });
 }
 
 function goToPage(page) {
