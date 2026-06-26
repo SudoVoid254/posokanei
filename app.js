@@ -45,7 +45,7 @@ const state = {
   filteredProducts: [],
   darkMode: localStorage.getItem('darkMode') === 'true',
   priceMin: 0,
-  priceMax: 999999,
+  priceMax: 0, // Will be set by category
   favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
   compareProducts: JSON.parse(localStorage.getItem('compareProducts') || '[]'),
   selectedBrand: 'all',
@@ -247,19 +247,39 @@ Esc = Close modals
   `.trim();
   alert(helpText);
 }
+
+// Make help hint clickable
+function setupHelpHint() {
+  const hint = document.querySelector('.keyboard-hint');
+  if (hint) {
+    hint.style.cursor = 'pointer';
+    hint.addEventListener('click', showKeyboardHelp);
+  }
+}
 async function init() {
   try {
     const categories = await API.getCategories();
     renderCategories(categories);
     setupKeyboardShortcuts();
     setupEventListeners();
+    setupContentEventListener();
+    setupHelpHint();
+    updateFavoritesButton();
+    updateCompareButton();
 
     // Set initial theme toggle text
     const themeToggle = document.getElementById('themeToggle');
     themeToggle.textContent = state.darkMode ? '☀ Light' : '🌙 Dark';
 
-    // Load URL state if exists
-    loadUrlState();
+    // Load URL state AFTER categories rendered
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('category')) {
+      const catId = params.get('category');
+      const catBtn = document.querySelector(`button[data-category-id="${catId}"]`);
+      if (catBtn) {
+        catBtn.click();
+      }
+    }
   } catch (err) {
     showError('Failed to load categories: ' + err.message);
   }
@@ -271,21 +291,23 @@ function clearFilters() {
   searchInput.value = '';
   searchInput.blur();
 
-  document.getElementById('priceMin').value = '';
-  document.getElementById('priceMax').value = '999999';
+  const priceMinInput = document.getElementById('priceMin');
+  const priceMaxInput = document.getElementById('priceMax');
+  const categoryMin = parseFloat(priceMinInput.min);
+  const categoryMax = parseFloat(priceMaxInput.max);
+
+  priceMinInput.value = categoryMin.toFixed(2);
+  priceMaxInput.value = categoryMax.toFixed(2);
   document.getElementById('brandFilter').value = 'all';
   document.getElementById('pageSize').value = '50';
   document.getElementById('sortOrder').value = 'asc';
 
-  state.priceMin = 0;
-  state.priceMax = 999999;
+  state.priceMin = categoryMin;
+  state.priceMax = categoryMax;
   state.selectedBrand = 'all';
   state.pageSize = 50;
   state.sortOrder = 'asc';
   state.currentPage = 1;
-
-  document.getElementById('priceDisplay').textContent = '0';
-  document.getElementById('priceDisplayMax').textContent = '999999';
 
   filterAndRenderProducts();
 }
@@ -337,21 +359,33 @@ function setupEventListeners() {
   // Price range
   if (priceMinInput && priceMaxInput) {
     priceMinInput.addEventListener('input', debounce(() => {
-      let value = parseFloat(priceMinInput.value) || 0;
-      value = Math.max(0, Math.min(value, 999999));
+      let value = parseFloat(priceMinInput.value);
+      if (isNaN(value)) return;
+
+      const minAllowed = parseFloat(priceMinInput.min);
+      const maxAllowed = state.priceMax;
+
+      value = Math.max(minAllowed, Math.min(value, maxAllowed));
+      value = Math.round(value * 100) / 100;
+
       state.priceMin = value;
-      priceMinInput.value = value;
-      document.getElementById('priceDisplay').textContent = value.toFixed(2);
+      priceMinInput.value = value.toFixed(2);
       state.currentPage = 1;
       filterAndRenderProducts();
     }, 300));
 
     priceMaxInput.addEventListener('input', debounce(() => {
-      let value = parseFloat(priceMaxInput.value) || 999999;
-      value = Math.max(0, Math.min(value, 999999));
+      let value = parseFloat(priceMaxInput.value);
+      if (isNaN(value)) return;
+
+      const minAllowed = state.priceMin;
+      const maxAllowed = parseFloat(priceMaxInput.max);
+
+      value = Math.max(minAllowed, Math.min(value, maxAllowed));
+      value = Math.round(value * 100) / 100;
+
       state.priceMax = value;
-      priceMaxInput.value = value;
-      document.getElementById('priceDisplayMax').textContent = value.toFixed(2);
+      priceMaxInput.value = value.toFixed(2);
       state.currentPage = 1;
       filterAndRenderProducts();
     }, 300));
@@ -414,6 +448,7 @@ function renderCategories(categories, depth = 0, parentEl = null) {
 
     const btn = document.createElement('button');
     btn.className = `category-btn nested-${Math.min(depth, 3)}`;
+    btn.setAttribute('data-category-id', cat.category_id);
     btn.textContent = `${cat.name || 'Unnamed'} (${cat.total_product_count || 0})`;
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -432,7 +467,6 @@ function renderCategories(categories, depth = 0, parentEl = null) {
   });
 }
 
-// ============ CATEGORY SELECTION ============
 async function selectCategory(catId, catName) {
   state.selectedCategoryId = catId;
   state.selectedCategoryName = catName;
@@ -440,7 +474,7 @@ async function selectCategory(catId, catName) {
 
   document.getElementById('selectedCatName').textContent = catName;
   document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
+  if (event && event.target) event.target.classList.add('active');
 
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('searchInput').value = '';
@@ -453,6 +487,37 @@ async function selectCategory(catId, catName) {
   try {
     const data = await API.getProducts(catId, 1, 1000, 'asc');
     state.allProducts = data.products || [];
+
+    // Update price range dynamically based on category
+    const prices = state.allProducts
+      .map(p => p.price_stats?.min_price)
+      .filter(p => p !== undefined && p !== null);
+
+    const categoryMin = Math.min(...prices);
+    const categoryMax = Math.max(...prices);
+    const roundedMin = Math.round(categoryMin * 100) / 100;
+    const roundedMax = Math.round(categoryMax * 100) / 100;
+
+    const priceMinInput = document.getElementById('priceMin');
+    const priceMaxInput = document.getElementById('priceMax');
+
+    if (priceMinInput && priceMaxInput) {
+      priceMinInput.min = roundedMin;
+      priceMinInput.max = roundedMax;
+      priceMinInput.value = roundedMin.toFixed(2);
+      priceMinInput.placeholder = `Min (€${roundedMin.toFixed(2)})`;
+
+      priceMaxInput.min = roundedMin;
+      priceMaxInput.max = roundedMax;
+      priceMaxInput.value = roundedMax.toFixed(2);
+      priceMaxInput.placeholder = `Max (€${roundedMax.toFixed(2)})`;
+    }
+
+    state.priceMin = roundedMin;
+    state.priceMax = roundedMax;
+    document.getElementById('priceDisplay').textContent = roundedMin.toFixed(2);
+    document.getElementById('priceDisplayMax').textContent = roundedMax.toFixed(2);
+
     updateBrandOptions();
     filterAndRenderProducts();
   } catch (err) {
@@ -511,74 +576,93 @@ function updateCompareButton() {
 function openCompareModal() {
   if (state.compareProducts.length === 0) return;
 
-  const products = state.compareProducts.map(id =>
-    state.allProducts.find(p => getProductId(p) === id)
-  ).filter(p => p);
-
-  if (products.length === 0) {
-    alert('Selected products not found');
-    return;
-  }
-
+  // Fetch fresh product data from API for compare products
   const modal = document.getElementById('compareModal');
   const table = document.getElementById('compareTable');
 
-  let html = `
-    <tr>
-      <th>Property</th>
-      ${products.map(p => `<th>${escapeHtml(p.name)}</th>`).join('')}
-    </tr>
-    <tr>
-      <td>Brand</td>
-      ${products.map(p => `<td>${escapeHtml(p.brand || 'N/A')}</td>`).join('')}
-    </tr>
-    <tr>
-      <td>Min Price</td>
-      ${products.map(p => `<td class="compare-price">€${p.price_stats?.min_price?.toFixed(2) || 'N/A'}</td>`).join('')}
-    </tr>
-    <tr>
-      <td>Avg Price</td>
-      ${products.map(p => `<td>€${p.price_stats?.avg_price?.toFixed(2) || 'N/A'}</td>`).join('')}
-    </tr>
-    <tr>
-      <td>Max Price</td>
-      ${products.map(p => `<td>€${p.price_stats?.max_price?.toFixed(2) || 'N/A'}</td>`).join('')}
-    </tr>
-    <tr>
-      <td>Retailers</td>
-      ${products.map(p => `<td>${p.retailer_prices?.length || 0}</td>`).join('')}
-    </tr>
-    <tr>
-      <td>Action</td>
-      ${products.map(p => `
-        <td>
-          <button class="compare-remove" data-product-id="${escapeHtml(getProductId(p))}" data-action="remove-compare">Remove</button>
-        </td>
-      `).join('')}
-    </tr>
-  `;
+  // Show loading
+  table.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #999;">Loading...</td></tr>';
+  modal.classList.add('open');
 
-  table.innerHTML = html;
-
-  // Event delegation for compare modal remove buttons
-  table.addEventListener('click', (e) => {
-    if (e.target.hasAttribute('data-action') && e.target.getAttribute('data-action') === 'remove-compare') {
-      const productId = e.target.getAttribute('data-product-id');
-      const idx = state.compareProducts.indexOf(productId);
-      if (idx > -1) {
-        state.compareProducts.splice(idx, 1);
-        localStorage.setItem('compareProducts', JSON.stringify(state.compareProducts));
-        updateCompareButton();
-        if (state.compareProducts.length === 0) {
-          closeCompareModal();
-        } else {
-          openCompareModal();
-        }
-      }
+  // Fetch all products to find compare items
+  const promises = state.compareProducts.map(productId => {
+    // Search for product in allProducts first
+    const product = state.allProducts.find(p => getProductId(p) === productId);
+    if (product) {
+      return Promise.resolve(product);
     }
+    // If not found in current category, return null (product may be from different category)
+    return Promise.resolve(null);
   });
 
-  modal.classList.add('open');
+  Promise.all(promises).then(products => {
+    const validProducts = products.filter(p => p);
+
+    if (validProducts.length === 0) {
+      table.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #999;">Products not found. They may be from a different category.</td></tr>';
+      return;
+    }
+
+    let html = `
+      <tr>
+        <th>Property</th>
+        ${validProducts.map(p => `<th>${escapeHtml(p.name)}</th>`).join('')}
+      </tr>
+      <tr>
+        <td>Brand</td>
+        ${validProducts.map(p => `<td>${escapeHtml(p.brand || 'N/A')}</td>`).join('')}
+      </tr>
+      <tr>
+        <td>Min Price</td>
+        ${validProducts.map(p => `<td class="compare-price">€${p.price_stats?.min_price?.toFixed(2) || 'N/A'}</td>`).join('')}
+      </tr>
+      <tr>
+        <td>Avg Price</td>
+        ${validProducts.map(p => `<td>€${p.price_stats?.avg_price?.toFixed(2) || 'N/A'}</td>`).join('')}
+      </tr>
+      <tr>
+        <td>Max Price</td>
+        ${validProducts.map(p => `<td>€${p.price_stats?.max_price?.toFixed(2) || 'N/A'}</td>`).join('')}
+      </tr>
+      <tr>
+        <td>Retailers</td>
+        ${validProducts.map(p => `<td>${p.retailer_prices?.length || 0}</td>`).join('')}
+      </tr>
+      <tr>
+        <td>Action</td>
+        ${validProducts.map(p => `
+          <td>
+            <button class="compare-remove" data-product-id="${escapeHtml(getProductId(p))}" data-action="remove-compare">Remove</button>
+          </td>
+        `).join('')}
+      </tr>
+    `;
+
+    table.innerHTML = html;
+
+    // Event delegation for compare modal remove buttons
+    table.removeEventListener('click', handleCompareRemove);
+    table.addEventListener('click', handleCompareRemove);
+  }).catch(err => {
+    table.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #999;">Error loading products</td></tr>`;
+  });
+}
+
+function handleCompareRemove(e) {
+  if (e.target.hasAttribute('data-action') && e.target.getAttribute('data-action') === 'remove-compare') {
+    const productId = e.target.getAttribute('data-product-id');
+    const idx = state.compareProducts.indexOf(productId);
+    if (idx > -1) {
+      state.compareProducts.splice(idx, 1);
+      localStorage.setItem('compareProducts', JSON.stringify(state.compareProducts));
+      updateCompareButton();
+      if (state.compareProducts.length === 0) {
+        closeCompareModal();
+      } else {
+        openCompareModal();
+      }
+    }
+  }
 }
 
 function closeCompareModal() {
@@ -799,34 +883,6 @@ function renderProducts(products, totalFiltered, totalPages) {
   `;
 
   // Event delegation for product actions and pagination
-  content.addEventListener('click', (e) => {
-    const productCard = e.target.closest('[data-product-id]');
-    if (productCard) {
-      if (e.target.hasAttribute('data-action')) {
-        const action = e.target.getAttribute('data-action');
-        const productId = productCard.getAttribute('data-product-id');
-        if (action === 'favorite') {
-          toggleFavorite(productId, e);
-        } else if (action === 'compare') {
-          toggleCompare(productId, e);
-        }
-      } else if (!e.target.closest('button')) {
-        // Open detail modal on card click (not on button click)
-        const productId = productCard.getAttribute('data-product-id');
-        const product = state.allProducts.find(p => getProductId(p) === productId);
-        if (product) {
-          trackRecentlyViewed(productId, product.name);
-          openProductDetailModal(product);
-        }
-      }
-    }
-
-    const pageBtn = e.target.closest('button[data-page]');
-    if (pageBtn && !pageBtn.disabled) {
-      const page = parseInt(pageBtn.getAttribute('data-page'));
-      goToPage(page);
-    }
-  });
 }
 
 function goToPage(page) {
@@ -847,3 +903,109 @@ function showError(msg) {
 }
 
 init();
+
+// Single event listener on #content (added in init, reused on all renders)
+function setupContentEventListener() {
+  const content = document.getElementById('content');
+  if (!content) return;
+
+  content.addEventListener('click', (e) => {
+    const productCard = e.target.closest('[data-product-id]');
+    if (productCard) {
+      if (e.target.hasAttribute('data-action')) {
+        const action = e.target.getAttribute('data-action');
+        const productId = productCard.getAttribute('data-product-id');
+        if (action === 'favorite') {
+          toggleFavorite(productId, e);
+        } else if (action === 'compare') {
+          toggleCompare(productId, e);
+        }
+      } else if (!e.target.closest('button')) {
+        const productId = productCard.getAttribute('data-product-id');
+        const product = state.allProducts.find(p => getProductId(p) === productId);
+        if (product) {
+          trackRecentlyViewed(productId, product.name);
+          openProductDetailModal(product);
+        }
+      }
+    }
+
+    const pageBtn = e.target.closest('button[data-page]');
+    if (pageBtn && !pageBtn.disabled) {
+      const page = parseInt(pageBtn.getAttribute('data-page'));
+      goToPage(page);
+    }
+  });
+}
+
+// ============ FAVORITES MODAL ============
+function openFavoritesModal() {
+  const modal = document.getElementById('favoritesModal');
+  if (!modal) return;
+
+  const favoriteProducts = state.favorites.map(id =>
+    state.allProducts.find(p => getProductId(p) === id)
+  ).filter(p => p);
+
+  let html = '';
+
+  if (favoriteProducts.length === 0) {
+    html = '<p style="padding: 20px; text-align: center; color: #999;">No favorites yet. Click ★ on products to add them.</p>';
+  } else {
+    html = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+        ${favoriteProducts.map(p => `
+          <div class="product-card">
+            ${p.image_url ? `<img src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" class="product-img" loading="lazy">` : ''}
+            <div style="flex-grow: 1;">
+              <div class="product-name" style="margin: 8px 0; font-size: 13px;">${escapeHtml(p.name)}</div>
+              ${p.brand ? `<div class="product-brand">Brand: ${escapeHtml(p.brand)}</div>` : ''}
+              <div style="margin: 8px 0; padding: 8px; background: #fff3cd; border-radius: 4px;">
+                <strong>€${p.price_stats?.min_price?.toFixed(2) || 'N/A'}</strong>
+              </div>
+            </div>
+            <button class="export-btn" data-action="remove-fav" data-product-id="${escapeHtml(getProductId(p))}" style="width: 100%; margin-top: 8px; padding: 8px; background: #f8d7da; color: #721c24;">Remove</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  modal.querySelector('.modal-content').innerHTML = `
+    <button class="modal-close" id="favoritesClose">✕</button>
+    <h2>My Favorites (${favoriteProducts.length})</h2>
+    ${html}
+    <button class="export-btn" onclick="exportFavoritesToCSV()" style="margin-top: 16px;">📥 Export Favorites</button>
+  `;
+
+  document.getElementById('favoritesClose').addEventListener('click', () => {
+    modal.classList.remove('open');
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.classList.remove('open');
+  });
+
+  // Event delegation for remove buttons
+  modal.querySelector('.modal-content').addEventListener('click', (e) => {
+    if (e.target.hasAttribute('data-action') && e.target.getAttribute('data-action') === 'remove-fav') {
+      const productId = e.target.getAttribute('data-product-id');
+      toggleFavorite(productId, e);
+      openFavoritesModal();
+    }
+  });
+
+  modal.classList.add('open');
+}
+
+// Update favorites count and setup button
+function updateFavoritesButton() {
+  const btn = document.getElementById('favoritesBtn');
+  const count = document.getElementById('favoritesCount');
+  if (count) {
+    count.textContent = state.favorites.length;
+  }
+  if (btn) {
+    btn.addEventListener('click', openFavoritesModal);
+  }
+}

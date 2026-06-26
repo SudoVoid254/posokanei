@@ -789,3 +789,62 @@ body.dark-mode .keyboard-hint {
   background: #333;
   color: #aaa;
 }
+
+/* ============ DARK MODE TEXT VISIBILITY ============ */
+body.dark-mode {
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode p,
+body.dark-mode label,
+body.dark-mode span {
+  color: #e0e0e0;
+}
+
+body.dark-mode .product-name {
+  color: #e0e0e0;
+}
+
+body.dark-mode .product-brand {
+  color: #aaa;
+}
+
+body.dark-mode .retailers-title {
+  color: #e0e0e0;
+}
+
+body.dark-mode .price-display {
+  color: #aaa;
+}
+
+body.dark-mode kbd {
+  background: #444;
+  color: #e0e0e0;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+body.dark-mode .keyboard-hint {
+  background: #333;
+  color: #aaa;
+  border: 1px solid #555;
+}
+
+body.dark-mode #compareModalTitle,
+body.dark-mode #favoritesModalTitle,
+body.dark-mode #detailModalTitle {
+  color: #e0e0e0;
+}
+
+body.dark-mode .modal-content h2 {
+  color: #e0e0e0;
+}
+
+body.dark-mode .compare-table th,
+body.dark-mode .compare-table td {
+  color: #e0e0e0;
+}

@@ -10,10 +10,14 @@
 
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙 Dark</button>
-  <div class="keyboard-hint">Press <kbd>?</kbd> for help</div>
+  <div class="keyboard-hint" title="Click for keyboard shortcuts">Press <kbd>?</kbd> for help</div>
   <button class="compare-btn" id="compareBtn" aria-label="Compare selected products">
     Compare ⚖
     <span class="compare-count" id="compareCount">0</span>
+  </button>
+  <button class="compare-btn" id="favoritesBtn" aria-label="View favorites" style="bottom: 80px; background: #ff9800;">
+    Favorites ★
+    <span class="compare-count" id="favoritesCount">0</span>
   </button>
 
   <div class="modal" id="compareModal" role="dialog" aria-labelledby="compareModalTitle">
@@ -24,6 +28,11 @@
         <tbody id="compareTable"></tbody>
       </table>
       <button class="export-btn" onclick="exportCompareToCSV()">📥 Export to CSV</button>
+    </div>
+  </div>
+
+  <div class="modal" id="favoritesModal" role="dialog" aria-labelledby="favoritesModalTitle">
+    <div class="modal-content" style="max-width: 800px;">
     </div>
   </div>
 
@@ -70,12 +79,11 @@
       <div class="price-range-container">
         <label>Price range (€)</label>
         <div class="price-inputs">
-          <input type="number" id="priceMin" placeholder="Min" min="0" step="0.01" aria-label="Minimum price">
-          <input type="number" id="priceMax" placeholder="Max" min="0" step="0.01" value="999999"
-            aria-label="Maximum price">
+          <input type="number" id="priceMin" placeholder="Min" step="0.01" value="0" aria-label="Minimum price">
+          <input type="number" id="priceMax" placeholder="Max" step="0.01" value="0" aria-label="Maximum price">
         </div>
         <div class="price-display">
-          €<span id="priceDisplay">0</span> - €<span id="priceDisplayMax">999999</span>
+          Category range: €<span id="priceDisplay">0.00</span> - €<span id="priceDisplayMax">0.00</span>
         </div>
       </div>
 
