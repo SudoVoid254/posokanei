@@ -145,10 +145,6 @@ h1 {
   color: #333;
 }
 
-body.dark-mode .control-group label {
-  color: #e0e0e0;
-}
-
 .control-group input,
 .control-group select {
   padding: 8px;
@@ -638,7 +634,6 @@ body.dark-mode .brand-select {
   font-size: 12px;
   transition: all 0.2s;
   width: 100%;
-  margin-top: 8px;
 }
 
 .filter-reset:hover {
@@ -824,7 +819,7 @@ body.dark-mode .export-btn:hover {
 /* ============ KEYBOARD HELP BADGE ============ */
 .keyboard-hint {
   position: fixed;
-  bottom: 120px;
+  bottom: 140px;
   right: 20px;
   background: #f0f0f0;
   padding: 8px 12px;
@@ -843,14 +838,10 @@ body.dark-mode .export-btn:hover {
 body.dark-mode .keyboard-hint {
   background: #333;
   color: #aaa;
+  border: 1px solid #555;
 }
 
 /* ============ DARK MODE TEXT VISIBILITY ============ */
-body.dark-mode {
-  background: #1a1a1a;
-  color: #e0e0e0;
-}
-
 body.dark-mode h1,
 body.dark-mode h2,
 body.dark-mode h3,
@@ -872,21 +863,11 @@ body.dark-mode .retailers-title {
   color: #e0e0e0;
 }
 
-body.dark-mode .price-display {
-  color: #aaa;
-}
-
 body.dark-mode kbd {
   background: #444;
   color: #e0e0e0;
   padding: 2px 4px;
   border-radius: 2px;
-}
-
-body.dark-mode .keyboard-hint {
-  background: #333;
-  color: #aaa;
-  border: 1px solid #555;
 }
 
 body.dark-mode #compareModalTitle,
@@ -897,27 +878,4 @@ body.dark-mode #detailModalTitle {
 
 body.dark-mode .modal-content h2 {
   color: #e0e0e0;
-}
-
-/* ============ FAVORITES MODAL DARK MODE ============ */
-body.dark-mode #favoritesModal .product-card {
-  background: #333;
-  border-color: #444;
-}
-
-body.dark-mode #favoritesModal .product-name {
-  color: #e0e0e0;
-}
-
-body.dark-mode #favoritesModal .product-brand {
-  color: #aaa;
-}
-
-body.dark-mode #favoritesModal .export-btn {
-  background: #5a2a2a;
-  color: #ff9999;
-}
-
-body.dark-mode #favoritesModal .export-btn:hover {
-  background: #721c24;
 }

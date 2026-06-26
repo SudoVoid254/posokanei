@@ -864,7 +864,7 @@ function openProductDetailModal(product) {
         </div>
         <div>
           <h2 style="margin: 0 0 8px; font-size: 18px;">${escapeHtml(product.name)}</h2>
-          ${product.brand ? `<p style="color: #666; margin: 0 0 16px;">Brand: ${escapeHtml(product.brand)}</p>` : ''}
+          ${product.brand ? `<p style="margin: 0 0 16px;" class="product-brand">Brand: ${escapeHtml(product.brand)}</p>` : ''}
           
           <div style="background: #f9f9f9; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
