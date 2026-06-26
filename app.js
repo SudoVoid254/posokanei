@@ -49,7 +49,9 @@ const state = {
   favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
   compareProducts: JSON.parse(localStorage.getItem('compareProducts') || '[]'),
   selectedBrand: 'all',
-  recentlyViewed: JSON.parse(localStorage.getItem('recentlyViewed') || '[]')
+  selectedRetailers: new Set(JSON.parse(localStorage.getItem('selectedRetailers') || '[]')),
+  recentlyViewed: JSON.parse(localStorage.getItem('recentlyViewed') || '[]'),
+  categoryPriceRange: { min: 0, max: 0 } // Original min/max before filtering
 };
 
 // ============ UTILITIES ============
@@ -76,10 +78,11 @@ function updateUrlState() {
   const search = document.getElementById('searchInput')?.value;
   if (search) params.set('search', search);
   if (state.currentPage > 1) params.set('page', state.currentPage);
-  if (state.priceMin > 0) params.set('minPrice', state.priceMin);
-  if (state.priceMax < 999999) params.set('maxPrice', state.priceMax);
+  if (state.priceMin > state.categoryPriceRange.min) params.set('minPrice', state.priceMin);
+  if (state.priceMax < state.categoryPriceRange.max) params.set('maxPrice', state.priceMax);
   if (state.selectedBrand !== 'all') params.set('brand', state.selectedBrand);
   if (state.sortOrder !== 'asc') params.set('sort', state.sortOrder);
+  if (state.selectedRetailers.size > 0) params.set('retailers', Array.from(state.selectedRetailers).join(','));
 
   const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
   window.history.replaceState(null, '', newUrl);
@@ -106,13 +109,13 @@ function loadUrlState() {
   }
 
   if (params.has('minPrice')) {
-    state.priceMin = parseFloat(params.get('minPrice')) || 0;
+    state.priceMin = parseFloat(params.get('minPrice')) || state.categoryPriceRange.min;
     const priceMin = document.getElementById('priceMin');
     if (priceMin) priceMin.value = state.priceMin;
   }
 
   if (params.has('maxPrice')) {
-    state.priceMax = parseFloat(params.get('maxPrice')) || 999999;
+    state.priceMax = parseFloat(params.get('maxPrice')) || state.categoryPriceRange.max;
     const priceMax = document.getElementById('priceMax');
     if (priceMax) priceMax.value = state.priceMax;
   }
@@ -121,6 +124,12 @@ function loadUrlState() {
     state.selectedBrand = params.get('brand');
     const brandFilter = document.getElementById('brandFilter');
     if (brandFilter) brandFilter.value = state.selectedBrand;
+  }
+
+  if (params.has('retailers')) {
+    const retailers = params.get('retailers').split(',').filter(r => r);
+    state.selectedRetailers = new Set(retailers);
+    updateRetailerCheckboxes();
   }
 
   if (params.has('sort')) {
@@ -256,6 +265,7 @@ function setupHelpHint() {
     hint.addEventListener('click', showKeyboardHelp);
   }
 }
+
 async function init() {
   try {
     const categories = await API.getCategories();
@@ -293,22 +303,22 @@ function clearFilters() {
 
   const priceMinInput = document.getElementById('priceMin');
   const priceMaxInput = document.getElementById('priceMax');
-  const categoryMin = parseFloat(priceMinInput.min);
-  const categoryMax = parseFloat(priceMaxInput.max);
 
-  priceMinInput.value = categoryMin.toFixed(2);
-  priceMaxInput.value = categoryMax.toFixed(2);
+  priceMinInput.value = state.categoryPriceRange.min.toFixed(2);
+  priceMaxInput.value = state.categoryPriceRange.max.toFixed(2);
   document.getElementById('brandFilter').value = 'all';
   document.getElementById('pageSize').value = '50';
   document.getElementById('sortOrder').value = 'asc';
 
-  state.priceMin = categoryMin;
-  state.priceMax = categoryMax;
+  state.priceMin = state.categoryPriceRange.min;
+  state.priceMax = state.categoryPriceRange.max;
   state.selectedBrand = 'all';
+  state.selectedRetailers.clear();
   state.pageSize = 50;
   state.sortOrder = 'asc';
   state.currentPage = 1;
 
+  updateRetailerCheckboxes();
   filterAndRenderProducts();
 }
 
@@ -324,6 +334,7 @@ function setupEventListeners() {
   const brandFilter = document.getElementById('brandFilter');
   const compareBtn = document.getElementById('compareBtn');
   const compareModal = document.getElementById('compareModal');
+  const clearRetailersBtn = document.getElementById('clearRetailers');
 
   // Theme toggle
   if (state.darkMode) document.body.classList.add('dark-mode');
@@ -362,7 +373,7 @@ function setupEventListeners() {
       let value = parseFloat(priceMinInput.value);
       if (isNaN(value)) return;
 
-      const minAllowed = parseFloat(priceMinInput.min);
+      const minAllowed = state.categoryPriceRange.min;
       const maxAllowed = state.priceMax;
 
       value = Math.max(minAllowed, Math.min(value, maxAllowed));
@@ -379,7 +390,7 @@ function setupEventListeners() {
       if (isNaN(value)) return;
 
       const minAllowed = state.priceMin;
-      const maxAllowed = parseFloat(priceMaxInput.max);
+      const maxAllowed = state.categoryPriceRange.max;
 
       value = Math.max(minAllowed, Math.min(value, maxAllowed));
       value = Math.round(value * 100) / 100;
@@ -404,6 +415,16 @@ function setupEventListeners() {
   const clearBtn = document.getElementById('clearFilters');
   if (clearBtn) {
     clearBtn.addEventListener('click', clearFilters);
+  }
+
+  // Clear retailers
+  if (clearRetailersBtn) {
+    clearRetailersBtn.addEventListener('click', () => {
+      state.selectedRetailers.clear();
+      state.currentPage = 1;
+      updateRetailerCheckboxes();
+      filterAndRenderProducts();
+    });
   }
 
   // Compare modal
@@ -479,6 +500,7 @@ async function selectCategory(catId, catName) {
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('searchInput').value = '';
   state.selectedBrand = 'all';
+  state.selectedRetailers.clear();
   document.getElementById('brandFilter').value = 'all';
 
   showLoading();
@@ -498,6 +520,10 @@ async function selectCategory(catId, catName) {
     const roundedMin = Math.round(categoryMin * 100) / 100;
     const roundedMax = Math.round(categoryMax * 100) / 100;
 
+    state.categoryPriceRange = { min: roundedMin, max: roundedMax };
+    state.priceMin = roundedMin;
+    state.priceMax = roundedMax;
+
     const priceMinInput = document.getElementById('priceMin');
     const priceMaxInput = document.getElementById('priceMax');
 
@@ -513,12 +539,11 @@ async function selectCategory(catId, catName) {
       priceMaxInput.placeholder = `Max (€${roundedMax.toFixed(2)})`;
     }
 
-    state.priceMin = roundedMin;
-    state.priceMax = roundedMax;
     document.getElementById('priceDisplay').textContent = roundedMin.toFixed(2);
     document.getElementById('priceDisplayMax').textContent = roundedMax.toFixed(2);
 
     updateBrandOptions();
+    updateRetailerOptions();
     filterAndRenderProducts();
   } catch (err) {
     showError('Failed to load products: ' + err.message);
@@ -685,9 +710,52 @@ function updateBrandOptions() {
   }
 }
 
+// ============ RETAILER FILTER ============
+function updateRetailerOptions() {
+  const retailers = [...new Set(state.allProducts
+    .flatMap(p => p.retailer_prices?.map(r => r.retailer_display_name) || [])
+    .filter(r => r)
+  )].sort();
+
+  const container = document.getElementById('retailerCheckboxes');
+  if (container) {
+    container.innerHTML = retailers.map(retailer => `
+      <div class="retailer-checkbox">
+        <input type="checkbox" id="retailer-${escapeHtml(retailer)}" value="${escapeHtml(retailer)}" 
+          ${state.selectedRetailers.has(retailer) ? 'checked' : ''}>
+        <label for="retailer-${escapeHtml(retailer)}">${escapeHtml(retailer)}</label>
+      </div>
+    `).join('');
+
+    // Add event listeners
+    container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          state.selectedRetailers.add(e.target.value);
+        } else {
+          state.selectedRetailers.delete(e.target.value);
+        }
+        localStorage.setItem('selectedRetailers', JSON.stringify(Array.from(state.selectedRetailers)));
+        state.currentPage = 1;
+        filterAndRenderProducts();
+      });
+    });
+  }
+}
+
+function updateRetailerCheckboxes() {
+  const container = document.getElementById('retailerCheckboxes');
+  if (container) {
+    container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+      checkbox.checked = state.selectedRetailers.has(checkbox.value);
+    });
+  }
+}
+
 function filterAndRenderProducts() {
   const searchTerm = document.getElementById('searchInput').value.toLowerCase();
 
+  // Filter by search, price, brand, and retailers
   state.filteredProducts = state.allProducts.filter(p => {
     const nameMatch = p.name.toLowerCase().includes(searchTerm) ||
       (p.brand && p.brand.toLowerCase().includes(searchTerm));
@@ -697,8 +765,49 @@ function filterAndRenderProducts() {
 
     const brandMatch = state.selectedBrand === 'all' || p.brand === state.selectedBrand;
 
-    return nameMatch && priceMatch && brandMatch;
+    // Retailer filter: show product only if it has selected retailers (or no retailers selected)
+    let retailerMatch = true;
+    if (state.selectedRetailers.size > 0) {
+      const productRetailers = p.retailer_prices?.map(r => r.retailer_display_name) || [];
+      retailerMatch = productRetailers.some(r => state.selectedRetailers.has(r));
+    }
+
+    return nameMatch && priceMatch && brandMatch && retailerMatch;
   });
+
+  // Recalculate price range if retailers filtered
+  if (state.selectedRetailers.size > 0) {
+    const filteredPrices = state.filteredProducts
+      .map(p => {
+        // Calculate min/max/avg for selected retailers only
+        const selectedPrices = p.retailer_prices
+          ?.filter(r => state.selectedRetailers.has(r.retailer_display_name))
+          .map(r => r.price) || [];
+
+        if (selectedPrices.length === 0) return null;
+        return {
+          min: Math.min(...selectedPrices),
+          max: Math.max(...selectedPrices),
+          avg: selectedPrices.reduce((a, b) => a + b) / selectedPrices.length
+        };
+      })
+      .filter(p => p !== null);
+
+    if (filteredPrices.length > 0) {
+      const allMins = filteredPrices.map(p => p.min);
+      const allMaxs = filteredPrices.map(p => p.max);
+      const newMin = Math.min(...allMins);
+      const newMax = Math.max(...allMaxs);
+
+      // Update display to show filtered range
+      document.getElementById('priceDisplay').textContent = newMin.toFixed(2);
+      document.getElementById('priceDisplayMax').textContent = newMax.toFixed(2);
+    }
+  } else {
+    // Reset to category range
+    document.getElementById('priceDisplay').textContent = state.categoryPriceRange.min.toFixed(2);
+    document.getElementById('priceDisplayMax').textContent = state.categoryPriceRange.max.toFixed(2);
+  }
 
   if (state.sortOrder === 'desc') {
     state.filteredProducts.sort((a, b) => {

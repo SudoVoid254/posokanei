@@ -563,6 +563,7 @@ body.dark-mode .modal-close {
 body.dark-mode .compare-table th,
 body.dark-mode .compare-table td {
   border-color: #444;
+  color: #e0e0e0;
 }
 
 .compare-table th {
@@ -650,6 +651,60 @@ body.dark-mode .filter-reset {
 
 body.dark-mode .filter-reset:hover {
   background: #6c757d;
+}
+
+/* ============ RETAILER FILTER ============ */
+.retailer-filter {
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+body.dark-mode .retailer-filter {
+  background: #333;
+}
+
+.retailer-filter label {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+body.dark-mode .retailer-filter label {
+  color: #e0e0e0;
+}
+
+.retailer-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.retailer-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.retailer-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #007bff;
+}
+
+.retailer-checkbox label {
+  margin: 0;
+  cursor: pointer;
+  font-weight: 400;
+  color: #333;
+}
+
+body.dark-mode .retailer-checkbox label {
+  color: #e0e0e0;
 }
 
 /* ============ COMPARE BUTTON ============ */
@@ -844,7 +899,25 @@ body.dark-mode .modal-content h2 {
   color: #e0e0e0;
 }
 
-body.dark-mode .compare-table th,
-body.dark-mode .compare-table td {
+/* ============ FAVORITES MODAL DARK MODE ============ */
+body.dark-mode #favoritesModal .product-card {
+  background: #333;
+  border-color: #444;
+}
+
+body.dark-mode #favoritesModal .product-name {
   color: #e0e0e0;
+}
+
+body.dark-mode #favoritesModal .product-brand {
+  color: #aaa;
+}
+
+body.dark-mode #favoritesModal .export-btn {
+  background: #5a2a2a;
+  color: #ff9999;
+}
+
+body.dark-mode #favoritesModal .export-btn:hover {
+  background: #721c24;
 }
