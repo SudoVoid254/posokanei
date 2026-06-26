@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PosoKanei - Price Comparison</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙 Dark</button>
   <div class="keyboard-hint">Press <kbd>?</kbd> for help</div>
@@ -30,19 +32,19 @@
 
   <div class="container">
     <h1>PosoKanei - Price Comparison</h1>
-    
+
     <div class="sidebar">
       <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle categories sidebar">☰ Categories</button>
       <h3>Categories</h3>
       <ul class="category-list" id="categories"></ul>
     </div>
-    
+
     <div class="main">
       <h3 id="selectedCatName">
         Select a category
         <span class="product-count"></span>
       </h3>
-      
+
       <div class="controls">
         <div class="control-group">
           <label for="searchInput">Search</label>
@@ -69,7 +71,8 @@
         <label>Price range (€)</label>
         <div class="price-inputs">
           <input type="number" id="priceMin" placeholder="Min" min="0" step="0.01" aria-label="Minimum price">
-          <input type="number" id="priceMax" placeholder="Max" min="0" step="0.01" value="999999" aria-label="Maximum price">
+          <input type="number" id="priceMax" placeholder="Max" min="0" step="0.01" value="999999"
+            aria-label="Maximum price">
         </div>
         <div class="price-display">
           €<span id="priceDisplay">0</span> - €<span id="priceDisplayMax">999999</span>
@@ -82,9 +85,10 @@
           <option value="all">All Brands</option>
         </select>
         <button class="filter-reset" id="clearFilters" aria-label="Clear all filters">Clear All Filters</button>
-        <button class="export-btn" onclick="exportFavoritesToCSV()" style="background: #6c757d; margin-top: 8px;">📥 Export Favorites</button>
+        <button class="export-btn" onclick="exportFavoritesToCSV()" style="background: #6c757d; margin-top: 8px;">📥
+          Export Favorites</button>
       </div>
-      
+
       <div id="content">
         <p style="color: #666;">Click a category to view products</p>
       </div>
@@ -93,4 +97,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>

@@ -56,11 +56,11 @@ h1 {
     overflow-y: visible;
     display: none;
   }
-  
+
   .sidebar.open {
     display: block;
   }
-  
+
   .sidebar-toggle {
     display: block;
   }
@@ -100,9 +100,17 @@ h1 {
   color: white;
 }
 
-.category-btn.nested-1 { padding-left: 24px; }
-.category-btn.nested-2 { padding-left: 40px; }
-.category-btn.nested-3 { padding-left: 56px; }
+.category-btn.nested-1 {
+  padding-left: 24px;
+}
+
+.category-btn.nested-2 {
+  padding-left: 40px;
+}
+
+.category-btn.nested-3 {
+  padding-left: 56px;
+}
 
 .main {
   background: white;
@@ -135,6 +143,10 @@ h1 {
   font-size: 12px;
   font-weight: 600;
   color: #333;
+}
+
+body.dark-mode .control-group label {
+  color: #e0e0e0;
 }
 
 .control-group input,
@@ -175,7 +187,7 @@ h1 {
 }
 
 .product-card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .product-img {
@@ -237,7 +249,8 @@ h1 {
   font-weight: 600;
 }
 
-.loading, .error {
+.loading,
+.error {
   padding: 15px;
   border-radius: 4px;
   margin: 10px 0;
@@ -479,7 +492,7 @@ body.dark-mode .favorites-count {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 1500;
   overflow-y: auto;
 }
@@ -502,11 +515,11 @@ body.dark-mode .favorites-count {
     margin: 10px;
     padding: 15px;
   }
-  
+
   .compare-table {
     font-size: 11px !important;
   }
-  
+
   .compare-table th,
   .compare-table td {
     padding: 6px !important;
@@ -654,12 +667,12 @@ body.dark-mode .filter-reset:hover {
   font-weight: 600;
   z-index: 999;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .compare-btn:hover:not(.disabled) {
   background: #218838;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   transform: translateY(-2px);
 }
 
@@ -701,7 +714,7 @@ body.dark-mode .filter-reset:hover {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 1600;
   overflow-y: auto;
 }

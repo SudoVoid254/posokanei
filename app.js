@@ -1,11 +1,11 @@
 // ============ API SERVICE ============
 const API = {
   WORKER_URL: 'https://posokanei-worker.jxrono10.workers.dev/api',
-  
+
   async getCategories() {
     const cached = sessionStorage.getItem('categories');
     if (cached) return JSON.parse(cached);
-    
+
     try {
       const res = await fetch(
         `${this.WORKER_URL}/meta/categories/tree?include_counts=true&include_hidden=false`
@@ -18,7 +18,7 @@ const API = {
       throw new Error('Failed to load categories: ' + err.message);
     }
   },
-  
+
   async getProducts(catId, page, pageSize, sortOrder) {
     try {
       // API max page_size is 100, cap user selection
@@ -61,13 +61,15 @@ function escapeHtml(text) {
 
 function debounce(fn, delay) {
   let timeoutId;
-  return function(...args) {
+  return function (...args) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => fn(...args), delay);
   };
 }
 
 // ============ URL STATE MANAGEMENT ============
+const debouncedUpdateUrlState = debounce(updateUrlState, 500);
+
 function updateUrlState() {
   const params = new URLSearchParams();
   if (state.selectedCategoryId) params.set('category', state.selectedCategoryId);
@@ -78,49 +80,49 @@ function updateUrlState() {
   if (state.priceMax < 999999) params.set('maxPrice', state.priceMax);
   if (state.selectedBrand !== 'all') params.set('brand', state.selectedBrand);
   if (state.sortOrder !== 'asc') params.set('sort', state.sortOrder);
-  
+
   const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
   window.history.replaceState(null, '', newUrl);
 }
 
 function loadUrlState() {
   const params = new URLSearchParams(window.location.search);
-  
+
   if (params.has('category')) {
     const catId = params.get('category');
     const catName = state.allProducts[0]?.category_name || 'Category';
     state.selectedCategoryId = catId;
     state.selectedCategoryName = catName;
   }
-  
+
   if (params.has('search')) {
     const search = params.get('search');
     const searchInput = document.getElementById('searchInput');
     if (searchInput) searchInput.value = decodeURIComponent(search);
   }
-  
+
   if (params.has('page')) {
     state.currentPage = parseInt(params.get('page')) || 1;
   }
-  
+
   if (params.has('minPrice')) {
     state.priceMin = parseFloat(params.get('minPrice')) || 0;
     const priceMin = document.getElementById('priceMin');
     if (priceMin) priceMin.value = state.priceMin;
   }
-  
+
   if (params.has('maxPrice')) {
     state.priceMax = parseFloat(params.get('maxPrice')) || 999999;
     const priceMax = document.getElementById('priceMax');
     if (priceMax) priceMax.value = state.priceMax;
   }
-  
+
   if (params.has('brand')) {
     state.selectedBrand = params.get('brand');
     const brandFilter = document.getElementById('brandFilter');
     if (brandFilter) brandFilter.value = state.selectedBrand;
   }
-  
+
   if (params.has('sort')) {
     state.sortOrder = params.get('sort');
     const sortOrder = document.getElementById('sortOrder');
@@ -135,7 +137,7 @@ function exportCompareToCSV() {
     return;
   }
 
-  const products = state.compareProducts.map(id => 
+  const products = state.compareProducts.map(id =>
     state.allProducts.find(p => getProductId(p) === id)
   ).filter(p => p);
 
@@ -153,7 +155,7 @@ function exportFavoritesToCSV() {
     return;
   }
 
-  const products = state.favorites.map(id => 
+  const products = state.favorites.map(id =>
     state.allProducts.find(p => getProductId(p) === id)
   ).filter(p => p);
 
@@ -251,11 +253,11 @@ async function init() {
     renderCategories(categories);
     setupKeyboardShortcuts();
     setupEventListeners();
-    
+
     // Set initial theme toggle text
     const themeToggle = document.getElementById('themeToggle');
     themeToggle.textContent = state.darkMode ? '☀ Light' : '🌙 Dark';
-    
+
     // Load URL state if exists
     loadUrlState();
   } catch (err) {
@@ -268,23 +270,23 @@ function clearFilters() {
   const searchInput = document.getElementById('searchInput');
   searchInput.value = '';
   searchInput.blur();
-  
+
   document.getElementById('priceMin').value = '';
   document.getElementById('priceMax').value = '999999';
   document.getElementById('brandFilter').value = 'all';
   document.getElementById('pageSize').value = '50';
   document.getElementById('sortOrder').value = 'asc';
-  
+
   state.priceMin = 0;
   state.priceMax = 999999;
   state.selectedBrand = 'all';
   state.pageSize = 50;
   state.sortOrder = 'asc';
   state.currentPage = 1;
-  
+
   document.getElementById('priceDisplay').textContent = '0';
   document.getElementById('priceDisplayMax').textContent = '999999';
-  
+
   filterAndRenderProducts();
 }
 
@@ -303,7 +305,7 @@ function setupEventListeners() {
 
   // Theme toggle
   if (state.darkMode) document.body.classList.add('dark-mode');
-  
+
   themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     state.darkMode = document.body.classList.contains('dark-mode');
@@ -401,15 +403,15 @@ function renderCategories(categories, depth = 0, parentEl = null) {
     container.appendChild(li);
     return;
   }
-  
+
   const container = parentEl || document.getElementById('categories');
-  
+
   categories.forEach(cat => {
     if (!cat) return;
-    
+
     const li = document.createElement('li');
     li.className = 'category-item';
-    
+
     const btn = document.createElement('button');
     btn.className = `category-btn nested-${Math.min(depth, 3)}`;
     btn.textContent = `${cat.name || 'Unnamed'} (${cat.total_product_count || 0})`;
@@ -417,10 +419,10 @@ function renderCategories(categories, depth = 0, parentEl = null) {
       e.preventDefault();
       selectCategory(cat.category_id, cat.name);
     });
-    
+
     li.appendChild(btn);
     container.appendChild(li);
-    
+
     if (cat.children && cat.children.length > 0) {
       const ul = document.createElement('ul');
       ul.className = 'category-list';
@@ -435,19 +437,19 @@ async function selectCategory(catId, catName) {
   state.selectedCategoryId = catId;
   state.selectedCategoryName = catName;
   state.currentPage = 1;
-  
+
   document.getElementById('selectedCatName').textContent = catName;
   document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
   event.target.classList.add('active');
-  
+
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('searchInput').value = '';
   state.selectedBrand = 'all';
   document.getElementById('brandFilter').value = 'all';
-  
+
   showLoading();
-  window.scrollTo({top: 0, behavior: 'smooth'});
-  
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
   try {
     const data = await API.getProducts(catId, 1, 1000, 'asc');
     state.allProducts = data.products || [];
@@ -508,8 +510,8 @@ function updateCompareButton() {
 
 function openCompareModal() {
   if (state.compareProducts.length === 0) return;
-  
-  const products = state.compareProducts.map(id => 
+
+  const products = state.compareProducts.map(id =>
     state.allProducts.find(p => getProductId(p) === id)
   ).filter(p => p);
 
@@ -557,7 +559,7 @@ function openCompareModal() {
   `;
 
   table.innerHTML = html;
-  
+
   // Event delegation for compare modal remove buttons
   table.addEventListener('click', (e) => {
     if (e.target.hasAttribute('data-action') && e.target.getAttribute('data-action') === 'remove-compare') {
@@ -575,7 +577,7 @@ function openCompareModal() {
       }
     }
   });
-  
+
   modal.classList.add('open');
 }
 
@@ -601,16 +603,16 @@ function updateBrandOptions() {
 
 function filterAndRenderProducts() {
   const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-  
+
   state.filteredProducts = state.allProducts.filter(p => {
     const nameMatch = p.name.toLowerCase().includes(searchTerm) ||
       (p.brand && p.brand.toLowerCase().includes(searchTerm));
-    
+
     const minPrice = p.price_stats?.min_price || 0;
     const priceMatch = minPrice >= state.priceMin && minPrice <= state.priceMax;
-    
+
     const brandMatch = state.selectedBrand === 'all' || p.brand === state.selectedBrand;
-    
+
     return nameMatch && priceMatch && brandMatch;
   });
 
@@ -627,7 +629,7 @@ function filterAndRenderProducts() {
   const endIdx = startIdx + state.pageSize;
   const paginatedProducts = state.filteredProducts.slice(startIdx, endIdx);
 
-  updateUrlState();
+  debouncedUpdateUrlState();
   renderProducts(paginatedProducts, state.filteredProducts.length, totalPages);
 }
 
@@ -713,7 +715,7 @@ function openProductDetailModal(product) {
 // ============ PRODUCT RENDERING ============
 function renderProducts(products, totalFiltered, totalPages) {
   const content = document.getElementById('content');
-  
+
   if (state.allProducts.length === 0) {
     content.innerHTML = '<p style="color: #666;">No products found</p>';
     return;
@@ -734,15 +736,15 @@ function renderProducts(products, totalFiltered, totalPages) {
   content.innerHTML = `
     <div class="products-grid">
       ${products.map((p, idx) => {
-        const cheapestRetailer = p.retailer_prices?.length > 0 
-          ? p.retailer_prices.reduce((a, b) => (a.price || 999999) < (b.price || 999999) ? a : b)
-          : null;
-        
-        const isPriceLeader = p.price_stats?.min_price === minPriceAll;
-        const isFav = isFavorited(getProductId(p));
-        const inCompare = isInCompare(getProductId(p));
+    const cheapestRetailer = p.retailer_prices?.length > 0
+      ? p.retailer_prices.reduce((a, b) => (a.price || 999999) < (b.price || 999999) ? a : b)
+      : null;
 
-        return `
+    const isPriceLeader = p.price_stats?.min_price === minPriceAll;
+    const isFav = isFavorited(getProductId(p));
+    const inCompare = isInCompare(getProductId(p));
+
+    return `
           <div class="product-card" data-product-id="${escapeHtml(getProductId(p))}" data-product-idx="${idx}">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px;">
               <div class="product-name" style="flex: 1;">${escapeHtml(p.name)}</div>
@@ -777,19 +779,19 @@ function renderProducts(products, totalFiltered, totalPages) {
             ` : ''}
           </div>
         `;
-      }).join('')}
+  }).join('')}
     </div>
     
     ${totalPages > 1 ? `
       <div class="pagination">
         <button data-page="1" ${state.currentPage === 1 ? 'disabled' : ''}>« First</button>
         <button data-page="${state.currentPage - 1}" ${state.currentPage === 1 ? 'disabled' : ''}>‹ Prev</button>
-        ${Array.from({length: totalPages}, (_, i) => i + 1)
-          .filter(p => Math.abs(p - state.currentPage) <= 2 || p === 1 || p === totalPages)
-          .map((p, i, arr) => {
-            if (i > 0 && arr[i-1] !== p - 1) return '<span>...</span>';
-            return `<button data-page="${p}" class="${p === state.currentPage ? 'active' : ''}">${p}</button>`;
-          }).join('')}
+        ${Array.from({ length: totalPages }, (_, i) => i + 1)
+        .filter(p => Math.abs(p - state.currentPage) <= 2 || p === 1 || p === totalPages)
+        .map((p, i, arr) => {
+          if (i > 0 && arr[i - 1] !== p - 1) return '<span>...</span>';
+          return `<button data-page="${p}" class="${p === state.currentPage ? 'active' : ''}">${p}</button>`;
+        }).join('')}
         <button data-page="${state.currentPage + 1}" ${state.currentPage === totalPages ? 'disabled' : ''}>Next ›</button>
         <button data-page="${totalPages}" ${state.currentPage === totalPages ? 'disabled' : ''}>Last »</button>
       </div>
@@ -832,7 +834,7 @@ function goToPage(page) {
   if (page < 1 || page > totalPages) return;
   state.currentPage = page;
   filterAndRenderProducts();
-  window.scrollTo({top: 0, behavior: 'smooth'});
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ============ UI FEEDBACK ============
